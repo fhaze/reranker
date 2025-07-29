@@ -1,0 +1,13 @@
+fastapi==0.116.1
+uvicorn==0.30.6
+sentence-transformers==5.0.0
+pydantic==2.9.2
+pydantic_core==2.23.4
+pydantic-extra-types==2.9.0
+pydantic-settings==2.5.2
+numpy==2.1.1
+sentence-transformers==5.0.0
+transformers==4.54.0
+tokenizers==0.21.2
+APScheduler==3.11.0
+pytz==2024.2
