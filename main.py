@@ -95,6 +95,34 @@ class RerankResponse(BaseModel):
     usage: dict
 
 
+class ModelInfo(BaseModel):
+    id: str
+    object: str
+    created: int
+    owned_by: str
+
+
+class ModelsList(BaseModel):
+    data: List[ModelInfo]
+    object: str
+
+
+@app.get("/v1/models", response_model=ModelsList)
+async def list_models():
+    """Return information about available models"""
+    return ModelsList(
+        data=[
+            ModelInfo(
+                id="BAAI/bge-reranker-v2-m3",
+                object="model",
+                created=1690000000,
+                owned_by="BAAI"
+            )
+        ],
+        object="list"
+    )
+
+
 @app.post("/v1/rerank", response_model=RerankResponse)
 async def rerank_documents(request: RerankRequest):
     try:
