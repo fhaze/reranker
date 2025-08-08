@@ -116,10 +116,10 @@ async def list_models():
                 id="BAAI/bge-reranker-v2-m3",
                 object="model",
                 created=1690000000,
-                owned_by="BAAI"
+                owned_by="BAAI",
             )
         ],
-        object="list"
+        object="list",
     )
 
 
@@ -127,16 +127,25 @@ async def list_models():
 async def rerank_documents(request: RerankRequest):
     try:
         logger.info("Incoming /rerank request: %s", request.model_dump_json(indent=2))
-
-        # Get model (loads if needed)
         model = model_manager.get_model()
-
-        # Prepare pairs for reranking
         query_document_pairs = [[request.query, doc] for doc in request.documents]
-
-        # Get relevance scores
         scores = model.predict(query_document_pairs, convert_to_tensor=True)
-        scores = torch.sigmoid(scores).cpu().tolist()
+
+        # Option 1: Keep raw logits (recommended for full control)
+        raw_scores = scores.cpu().tolist()
+
+        # Normalize scores to [0, 1] range
+        if len(raw_scores) > 1:
+            min_score = min(raw_scores)
+            max_score = max(raw_scores)
+            if max_score > min_score:
+                normalized_scores = [
+                    (s - min_score) / (max_score - min_score) for s in raw_scores
+                ]
+            else:
+                normalized_scores = [0.5] * len(raw_scores)
+        else:
+            normalized_scores = raw_scores
 
         # Create results with indices and scores
         results = [
@@ -145,16 +154,13 @@ async def rerank_documents(request: RerankRequest):
                 relevance_score=float(score),
                 document=Document(text=doc) if request.return_documents else None,
             )
-            for i, (doc, score) in enumerate(zip(request.documents, scores))
+            for i, (doc, score) in enumerate(zip(request.documents, normalized_scores))
         ]
-
         # Sort by relevance score (descending)
         results.sort(key=lambda x: x.relevance_score, reverse=True)
-
         # Apply top_n if specified
         if request.top_n:
             results = results[: request.top_n]
-
         response = RerankResponse(
             results=results,
             model=request.model,
@@ -164,10 +170,8 @@ async def rerank_documents(request: RerankRequest):
                 "total_tokens": len(request.query.split()),
             },
         )
-
         logger.info("Response for /rerank: %s", response.model_dump_json(indent=2))
         return response
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
